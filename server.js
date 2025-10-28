@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const path = require('path');
 const fs = require('fs').promises;
 const multer = require('multer');
@@ -6,9 +7,32 @@ const multer = require('multer');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Enable gzip compression
+app.use(compression());
+
 // Middleware
 app.use(express.json());
-app.use(express.static('public'));
+
+// Configure static file serving with caching
+app.use(express.static('public', {
+  maxAge: '1d', // Cache static files for 1 day
+  etag: true,
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Cache images for 7 days
+    if (filePath.match(/\.(jpg|jpeg|png|gif|webp|ico)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+    }
+    // Cache CSS/JS for 1 day
+    else if (filePath.match(/\.(css|js)$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+    // Cache JSON for 5 minutes
+    else if (filePath.match(/\.json$/)) {
+      res.setHeader('Cache-Control', 'public, max-age=300');
+    }
+  }
+}));
 
 // Configure multer for image uploads
 const storage = multer.diskStorage({
@@ -72,6 +96,8 @@ app.get('/api/wallpapers', async (req, res) => {
       }
     }
     
+    // Cache API response for 5 minutes
+    res.setHeader('Cache-Control', 'public, max-age=300');
     res.json(wallpaperData);
   } catch (error) {
     console.error('Error reading wallpapers:', error);

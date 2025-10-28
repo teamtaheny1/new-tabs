@@ -4,6 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>My New Tab</title>
+  <!-- Resource hints for faster loading -->
+  <link rel="preconnect" href="https://www.google.com" crossorigin>
+  <link rel="dns-prefetch" href="https://www.google.com">
   <style>
     :root{
       --bg-blur: 6px;
@@ -380,10 +383,14 @@
     async function loadWallpapers() {
       try {
         // Try API endpoint first (for local dev server)
-        let response = await fetch('/api/wallpapers');
+        let response = await fetch('/api/wallpapers', {
+          cache: 'force-cache' // Use browser cache when available
+        });
         if (!response.ok) {
           // Fallback to static JSON file (for Firebase hosting)
-          response = await fetch('/wallpapers.json');
+          response = await fetch('/wallpapers.json', {
+            cache: 'force-cache'
+          });
         }
         wallpapers = await response.json();
         
@@ -1031,6 +1038,15 @@
       }
     }
     
+    // ---------- Service Worker Registration ----------
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then(reg => console.log('Service Worker registered'))
+          .catch(err => console.log('Service Worker registration failed:', err));
+      });
+    }
+
     // ---------- Init ----------
     initBackground(true); // Rotate wallpaper on each page load
     tickClock(); setInterval(tickClock, 1000);
