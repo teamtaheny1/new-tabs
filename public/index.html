@@ -113,6 +113,22 @@
     
     .input-group{ display: flex; gap: 8px; align-items: center; }
     .input-group input{ flex: 1; }
+    
+    /* Settings Panel */
+    .settings-group{ margin-bottom: 16px; }
+    .settings-group label{ display: block; font-size: 14px; margin-bottom: 6px; opacity: 0.9; }
+    .toggle-switch{ position: relative; display: inline-block; width: 48px; height: 24px; }
+    .toggle-switch input{ opacity: 0; width: 0; height: 0; }
+    .toggle-slider{ position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.2); border-radius: 24px; transition: 0.3s; }
+    .toggle-slider:before{ position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+    .toggle-switch input:checked + .toggle-slider{ background: #3b82f6; }
+    .toggle-switch input:checked + .toggle-slider:before{ transform: translateX(24px); }
+    .color-picker-wrapper{ display: flex; gap: 8px; align-items: center; }
+    .color-picker-wrapper input[type="color"]{ width: 48px; height: 36px; border: 1px solid var(--glass-strong); background: var(--glass); cursor: pointer; }
+    .color-preview{ display: inline-flex; gap: 6px; }
+    .color-chip{ width: 32px; height: 32px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.3); cursor: pointer; transition: transform 120ms; }
+    .color-chip:hover{ transform: scale(1.1); }
+    .color-chip.active{ border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
     </style>
   </head>
   <body>
@@ -195,6 +211,38 @@
         <select id="viewFolderSelect"></select>
         <div id="imageGrid" class="image-grid"></div>
       </div>
+      
+      <div class="manager-section">
+        <h3>Tile Settings</h3>
+        
+        <div class="settings-group">
+          <label>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span>Use Title Initials Instead of Favicons</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="useInitialsToggle" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </label>
+        </div>
+        
+        <div class="settings-group">
+          <label>Favicon Background Color</label>
+          <div class="color-picker-wrapper">
+            <div class="color-preview">
+              <div class="color-chip" data-color="#3b82f6" style="background: #3b82f6;"></div>
+              <div class="color-chip" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
+              <div class="color-chip" data-color="#ec4899" style="background: #ec4899;"></div>
+              <div class="color-chip" data-color="#f59e0b" style="background: #f59e0b;"></div>
+              <div class="color-chip" data-color="#10b981" style="background: #10b981;"></div>
+              <div class="color-chip" data-color="#6366f1" style="background: #6366f1;"></div>
+              <div class="color-chip active" data-color="rgba(255,255,255,0.12)" style="background: rgba(255,255,255,0.12);"></div>
+            </div>
+            <input type="color" id="customColorPicker" value="#3b82f6" />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -210,6 +258,24 @@
     const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
     const storageKey = 'newtab.shortcuts.v1';
     const bgKey = 'newtab.bg.seed';
+    const settingsKey = 'newtab.settings.v1';
+
+    // Settings
+    function getSettings() {
+      try {
+        return JSON.parse(localStorage.getItem(settingsKey)) || {
+          useInitials: false,
+          faviconBgColor: 'rgba(255,255,255,0.12)'
+        };
+      } catch {
+        return { useInitials: false, faviconBgColor: 'rgba(255,255,255,0.12)' };
+      }
+    }
+    
+    function saveSettings(settings) {
+      localStorage.setItem(settingsKey, JSON.stringify(settings));
+      render();
+    }
 
     function getShortcuts(){
       try { return JSON.parse(localStorage.getItem(storageKey)) || []; } catch { return []; }
@@ -322,18 +388,35 @@
 
     // ---------- Grid Rendering ----------
     function createTile(item, index){
+      const settings = getSettings();
       const a = document.createElement('a');
       a.className = 'tile';
       a.href = item.url; a.target = '_self'; a.draggable = true; a.dataset.index = index;
 
       const icon = document.createElement('div');
       icon.className = 'favicon';
-      const img = document.createElement('img');
-      img.alt = '';
-      const origin = originOf(item.url);
-      img.src = `${origin}/favicon.ico`;
-      img.onerror = () => { img.replaceWith(Object.assign(document.createElement('div'), {className:'initials', textContent: initialsFromTitle(item.title)})); };
-      icon.appendChild(img);
+      icon.style.background = settings.faviconBgColor;
+      
+      if (settings.useInitials) {
+        // Always show initials
+        const initials = document.createElement('div');
+        initials.className = 'initials';
+        initials.textContent = initialsFromTitle(item.title) || initialsFromHost(domainOf(item.url));
+        icon.appendChild(initials);
+      } else {
+        // Try to load favicon
+        const img = document.createElement('img');
+        img.alt = '';
+        const origin = originOf(item.url);
+        img.src = `${origin}/favicon.ico`;
+        img.onerror = () => { 
+          img.replaceWith(Object.assign(document.createElement('div'), {
+            className:'initials', 
+            textContent: initialsFromTitle(item.title) || initialsFromHost(domainOf(item.url))
+          })); 
+        };
+        icon.appendChild(img);
+      }
 
       const label = document.createElement('div');
       label.className = 'label';
@@ -505,6 +588,7 @@
       await loadWallpapers();
       populateFolderList();
       populateFolderSelects();
+      loadSettings();
       currentManagerFolder = Object.keys(wallpapers)[0];
       if(currentManagerFolder) {
         $('#viewFolderSelect').value = currentManagerFolder;
@@ -512,6 +596,16 @@
         loadImagesForFolder(currentManagerFolder);
       }
       $('#wallpaperModal').classList.add('visible');
+    }
+    
+    function loadSettings() {
+      const settings = getSettings();
+      $('#useInitialsToggle').checked = settings.useInitials;
+      
+      // Update color chip selection
+      $$('.color-chip').forEach(chip => {
+        chip.classList.toggle('active', chip.dataset.color === settings.faviconBgColor);
+      });
     }
     
     function closeWallpaperManager() {
@@ -730,6 +824,39 @@
         console.error(err);
       }
     }
+    
+    // ---------- Settings ----------
+    $('#useInitialsToggle').addEventListener('change', (e) => {
+      const settings = getSettings();
+      settings.useInitials = e.target.checked;
+      saveSettings(settings);
+      toast(settings.useInitials ? 'Using initials' : 'Using favicons');
+    });
+    
+    // Color chip selection
+    $$('.color-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const color = chip.dataset.color;
+        const settings = getSettings();
+        settings.faviconBgColor = color;
+        saveSettings(settings);
+        
+        $$('.color-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        toast('Color updated');
+      });
+    });
+    
+    // Custom color picker
+    $('#customColorPicker').addEventListener('change', (e) => {
+      const color = e.target.value;
+      const settings = getSettings();
+      settings.faviconBgColor = color;
+      saveSettings(settings);
+      
+      $$('.color-chip').forEach(c => c.classList.remove('active'));
+      toast('Custom color applied');
+    });
 
     // ---------- Init ----------
     initBackground(true); // Rotate wallpaper on each page load
