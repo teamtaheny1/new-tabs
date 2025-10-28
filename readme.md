@@ -6,7 +6,8 @@ A beautiful, minimal custom browser new tab page with dynamic wallpapers and cus
 
 ## ✨ Features
 
-- **🎨 Dynamic Wallpapers** - Rotating collection of beautiful wallpapers from dark and nature themes
+- **🎨 Dynamic Wallpapers** - Rotating collection of beautiful wallpapers from customizable folders
+- **🖼️ Wallpaper Manager** - Create folders, upload, and delete wallpaper images directly from the UI
 - **🔗 Quick Access Shortcuts** - Add, edit, and organize your favorite websites
 - **⏰ Live Clock & Date** - Always know the current time at a glance
 - **🎯 Drag & Drop** - Reorder shortcuts with intuitive drag-and-drop
@@ -15,8 +16,8 @@ A beautiful, minimal custom browser new tab page with dynamic wallpapers and cus
 - **🎭 Glassmorphism UI** - Modern, frosted-glass interface design
 - **⚙️ Toggle Controls** - Clean interface with collapsible settings
 - **📱 Responsive** - Works beautifully on all screen sizes
-- **🚀 Firebase Hosting** - Automatically deployed via GitHub Actions
-- **⚡ Express Server** - Optional local development server
+- **⚡ Express Server** - Full-featured local development server with API
+- **📁 File Upload** - Drag & drop or click to upload wallpaper images
 
 ## 🚀 Quick Start
 
@@ -41,53 +42,12 @@ A beautiful, minimal custom browser new tab page with dynamic wallpapers and cus
 4. **Open your browser**
    - Navigate to `http://localhost:3000`
 
-### Production Deployment (Firebase)
-
-1. **Install Firebase CLI**
-   ```bash
-   npm install -g firebase-tools
-   ```
-
-2. **Login to Firebase**
-   ```bash
-   firebase login
-   ```
-
-3. **Initialize Firebase project**
-   ```bash
-   firebase init hosting
-   ```
-   - Select your Firebase project
-   - Set `public` as the public directory
-   - Configure as single-page app: Yes
-   - Don't overwrite index.html
-
-4. **Update Firebase project ID**
-   - Edit `.firebaserc` and replace `your-firebase-project-id` with your actual project ID
-   - Edit both workflow files in `.github/workflows/` and update the project ID
-
-5. **Deploy manually**
-   ```bash
-   firebase deploy
-   ```
-
-### GitHub Actions Auto-Deployment
-
-1. **Get Firebase service account key**
-   ```bash
-   firebase init hosting:github
-   ```
-   This will automatically:
-   - Set up GitHub Actions workflows
-   - Add `FIREBASE_SERVICE_ACCOUNT` secret to your GitHub repo
-
 2. **Push to GitHub**
    ```bash
    git add .
    git commit -m "Initial commit"
    git push origin main
    ```
-
 3. **Automatic deployment**
    - Every push to `main` triggers a production deployment
    - Pull requests create preview deployments
@@ -117,34 +77,41 @@ A beautiful, minimal custom browser new tab page with dynamic wallpapers and cus
 - **Delete**: Right-click a tile → Delete
 - **Open**: Right-click a tile → Open (or just click normally)
 
+### Managing Wallpapers
+1. Click the gear icon to show controls
+2. Click **Manage Wallpapers** button
+3. **Create Folders**: Enter a folder name and click "Create Folder"
+4. **Upload Images**: 
+   - Select a folder from the dropdown
+   - Click the upload area or drag & drop images
+   - Supports JPG, PNG, WEBP, GIF (max 10MB each)
+5. **Delete Images**: 
+   - Select a folder to view its images
+   - Hover over an image and click the delete icon
+6. **Delete Folders**: Click the ✕ next to a folder name (deletes all images in that folder)
+
 ### Changing Wallpapers
 1. Click the gear icon to show controls
-2. Select a wallpaper folder from the dropdown (Dark/Outdoors)
+2. Select a wallpaper folder from the dropdown
 3. Click **Change wallpaper** to rotate to the next image
 4. Wallpaper automatically rotates on each page load
 
-### Export/Import
+### Export/Import Shortcuts
 - **Export**: Click "Export" to download `shortcuts.json`
 - **Import**: Click "Import" and select a previously exported JSON file
 
 ## 🎨 Customization
 
-### Adding Your Own Wallpapers
+### Managing Wallpapers (New!)
 
-1. Add images to `wallpapers/dark/` or `wallpapers/nature/`
-2. Update the `wallpapers` object in `index.html` (around line 140):
+The app now includes a built-in wallpaper manager! No need to manually edit files:
 
-```javascript
-const wallpapers = {
-  dark: [
-    'your-image-1.jpg',
-    'your-image-2.jpg'
-  ],
-  nature: [
-    'your-nature-1.jpg'
-  ]
-};
-```
+1. Click the **gear icon** (⚙️) in the bottom right
+2. Click **Manage Wallpapers**
+3. Create new folders, upload images, or delete existing ones
+4. All changes are immediately reflected in the folder dropdown
+
+The wallpaper system automatically scans your folders and displays all available images. You can organize your wallpapers however you like!
 
 ### Styling
 
@@ -163,11 +130,22 @@ Edit CSS variables in `:root` (line 7) to customize colors and appearance:
 
 ## 🛠️ Technical Details
 
-- **Node.js + Express** - Simple server for local development
+- **Node.js + Express** - Server with REST API for wallpaper management
+- **Multer** - File upload handling middleware
 - **Pure vanilla JavaScript** - No frontend frameworks or dependencies
-- **LocalStorage** - All data stored locally in your browser
-- **Firebase Hosting** - Static file hosting with global CDN
-- **GitHub Actions** - Automated CI/CD pipeline
+- **LocalStorage** - Shortcuts data stored locally in your browser
+- **Dynamic File System** - Wallpapers automatically detected from folders
+- **Modern CSS** - Grid layout, backdrop filters, glassmorphism
+
+## 📡 API Endpoints
+
+The local server provides the following API endpoints:
+
+- `GET /api/wallpapers` - List all wallpaper folders and files
+- `POST /api/wallpapers/folders` - Create a new wallpaper folder
+- `POST /api/wallpapers/upload` - Upload images to a folder
+- `DELETE /api/wallpapers/:folder/:filename` - Delete a specific image
+- `DELETE /api/wallpapers/folders/:folder` - Delete a folder and all its images
 - **Modern CSS** - Grid layout, backdrop filters, glassmorphism
 
 ## 📁 Project Structure
