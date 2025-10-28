@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>My New Tab</title>
+  <style>
+    :root{
+      --bg-blur: 6px;
+      --controls-visible: none;
+      --tile-size: 92px;
+      --tile-radius: 16px;
+      --gap: 14px;
+      --glass: rgba(255,255,255,0.05);
+      --glass-strong: rgba(255,255,255,0.12);
+      --text: #f2f4f8;
+      --muted: #cbd5e1;
+      --shadow: 0 6px 24px rgba(0,0,0,0.25);
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: #0b1220;
+      overflow: hidden;
+    }
+    .bg {
+      position: fixed; inset: 0; background-size: cover; background-position: center; 
+      /* filter: blur(var(--bg-blur)); transform: scale(1.04); opacity: 0.95; */
+    }
+    .scrim{ position: fixed; inset:0; background: radial-gradient(1200px 800px at 50% 20%, rgba(0,0,0,0.15), rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.75)); }
+
+    .container{ position: relative; height: 100%; display: grid; grid-template-rows: auto 1fr auto; }
+
+    header{ display:flex; align-items:center; justify-content:space-between; padding: 24px 28px; }
+    .clock-container{ display:flex; flex-direction:column; gap:2px; }
+    .date{ font-weight: 500; font-size: 14px; letter-spacing: 0.3px; opacity: 0.85; text-shadow: 0 1px 6px rgba(0,0,0,0.3); }
+    .clock{ font-weight: 700; font-size: 28px; letter-spacing: 0.6px; text-shadow: 0 2px 10px rgba(0,0,0,0.35); }
+    .controls{ display:none; gap:10px; align-items:center; }
+    .controls.visible{ display:flex; }
+    button, input, select{ height: 36px; border-radius: 10px; border: 1px solid var(--glass-strong); background: var(--glass); color: var(--text); padding: 0 12px; backdrop-filter: blur(6px); box-shadow: var(--shadow); }
+    button { cursor: pointer; }
+    button:hover{ background: var(--glass-strong); }
+    select{ cursor: pointer; }
+    select:hover{ background: var(--glass-strong); }
+
+    main{ padding: 10px 28px 28px; overflow: auto; }
+    .grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile-size), 1fr)); gap: var(--gap); }
+    .tile{ user-select: none; background: var(--glass); border:1px solid var(--glass-strong); height: var(--tile-size); border-radius: var(--tile-radius); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; text-decoration:none; color:var(--text); box-shadow: var(--shadow); position: relative; transition: transform 120ms ease, background 120ms ease, border-color 120ms ease; }
+    .tile:hover{ transform: translateY(-2px); background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.22); }
+    .tile:active{ transform: translateY(0); }
+    .tile .favicon{ width: 28px; height: 28px; border-radius: 6px; background: rgba(255,255,255,0.12); display:grid; place-items:center; overflow:hidden; }
+    .tile .favicon img{ width:100%; height:100%; object-fit:contain; image-rendering: -webkit-optimize-contrast; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+    .tile .initials{ font-weight:700; font-size: 14px; color: var(--muted); }
+    .tile .label{ font-size: 12px; line-height: 1.15; max-width: calc(var(--tile-size) - 16px); text-align:center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: 0.95; }
+    .tile .handle{ position:absolute; inset:auto 8px 8px auto; opacity:0; transition:opacity 120ms; font-size: 11px; color:#e2e8f0; background: rgba(15,23,42,0.55); padding:2px 6px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); }
+    .tile:hover .handle{ opacity:1; }
+    .tile.dragging{ opacity:0.65; outline: 2px dashed rgba(255,255,255,0.35); }
+
+    main{ display: flex; justify-content: center; align-items: center; }
+    .grid{ max-width: calc((var(--tile-size) + var(--gap)) * 5); }
+
+    .empty{ opacity:0.7; text-align:center; padding:40px 0; font-size:14px; }
+
+    footer{ padding: 18px 28px; display:none; gap: 12px; align-items:center; backdrop-filter: blur(8px); }
+    footer.visible{ display:flex; }
+    .form{ display:flex; gap:8px; flex-wrap: wrap; }
+    .form input{ width: 280px; max-width: 48vw; }
+    .form input[name="title"]{ width: 200px; }
+
+    .menu{ position: absolute; background: rgba(15,23,42,0.9); border:1px solid rgba(255,255,255,0.16); box-shadow: var(--shadow); border-radius: 12px; display:none; flex-direction:column; min-width: 160px; z-index: 50; }
+    .menu button{ background: transparent; border:0; text-align:left; padding:10px 12px; font-size: 14px; }
+    .menu button:hover{ background: rgba(255,255,255,0.08); }
+
+    .toast{ position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); background: rgba(15,23,42,0.92); border:1px solid rgba(255,255,255,0.18); color:var(--text); padding: 10px 14px; border-radius: 999px; display:none; box-shadow: var(--shadow); font-size: 13px; }
+    
+    .gear-button{ position: fixed; bottom: 28px; right: 28px; width: 48px; height: 48px; border-radius: 50%; background: var(--glass); border: 1px solid var(--glass-strong); display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(6px); box-shadow: var(--shadow); transition: transform 120ms ease, background 120ms ease; z-index: 100; }
+    .gear-button:hover{ background: var(--glass-strong); transform: scale(1.05); }
+    .gear-button:active{ transform: scale(0.95); }
+    .gear-button svg{ width: 24px; height: 24px; fill: var(--text); opacity: 0.9; }
+    </style>
+  </head>
+  <body>
+    <div id="bg" class="bg"></div>
+    <div class="scrim"></div>
+
+    
+    <div class="container">
+    <header>
+      <div class="clock-container">
+        <div class="date" id="date">---</div>
+        <div class="clock" id="clock">--:--</div>
+      </div>
+      <div class="controls">
+      <select id="folderSelect" title="Select wallpaper folder">
+        <option value="dark">Dark</option>
+        <option value="nature">Nature</option>
+      </select>
+      <button id="shuffleBg" title="Change wallpaper">Change wallpaper</button>
+      <button id="exportBtn" title="Export shortcuts">Export</button>
+      <button id="importBtn" title="Import shortcuts">Import</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none" />
+      </div>
+    </header>
+
+    <main>
+      <div id="grid" class="grid" aria-live="polite"></div>
+      <div id="empty" class="empty" hidden>
+        No shortcuts yet. Add one below. Drag to reorder. Right‑click a tile to edit or delete.
+      </div>
+    </main>
+
+    <footer>
+      <form id="addForm" class="form" autocomplete="off">
+        <input name="url" type="url" placeholder="https://example.com" required />
+        <input name="title" type="text" placeholder="Title (optional)" />
+        <button type="submit">Add</button>
+      </form>
+    </footer>
+  </div>
+
+  <div id="menu" class="menu" role="menu" aria-hidden="true">
+    <button data-action="open">Open</button>
+    <button data-action="edit">Edit</button>
+    <button data-action="delete">Delete</button>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <button class="gear-button" id="gearBtn" title="Toggle controls" aria-label="Toggle controls">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+      <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+    </svg>
+  </button>
+
+  <script>
+    // ---------- Utilities ----------
+    const $ = (q, el=document) => el.querySelector(q);
+    const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
+    const storageKey = 'newtab.shortcuts.v1';
+    const bgKey = 'newtab.bg.seed';
+
+    function getShortcuts(){
+      try { return JSON.parse(localStorage.getItem(storageKey)) || []; } catch { return []; }
+    }
+    function setShortcuts(list){ localStorage.setItem(storageKey, JSON.stringify(list)); render(); }
+
+    function normalizeURL(input){
+      try {
+      let url = new URL(input.includes('://') ? input : 'https://' + input);
+      return url.href.replace(/\/$/, '');
+      } catch (e){ throw new Error('Invalid URL'); }
+    }
+    function domainOf(href){ try{ return new URL(href).hostname; } catch { return href; } }
+    function originOf(href){ try{ return new URL(href).origin; } catch { return href; } }
+    function initialsFromTitle(title) { 
+      if (!title) return '?';
+      const words = title.trim().split(/\s+/);
+      return words.slice(0, 2).map(w => w.charAt(0).toUpperCase()).join('');
+    }
+    function initialsFromHost(host){
+      const core = host.replace(/^www\./,'').split('.')[0];
+      return core.slice(0,3).toUpperCase();
+    }
+
+    function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast._id); toast._id=setTimeout(()=> t.style.display='none', 1800); }
+
+    // ---------- Background (local wallpapers) ----------
+    const wallpapers = {
+      dark: [
+        'pexels-achraf210-1477156.jpg',
+        'pexels-adrien-olichon-1257089-2387793.jpg',
+        'pexels-eberhardgross-1301976.jpg',
+        'pexels-eberhardgross-1421903.jpg',
+        'pexels-eberhardgross-2098428.jpg',
+        'pexels-elijahsad-3473569.jpg',
+        'pexels-maahidphotos-12610842.jpg',
+        'pexels-markusspiske-1679719.jpg',
+        'pexels-pixabay-315938.jpg',
+        'pexels-pixabay-53153.jpg',
+        'pexels-seatizen-co-170969-557782.jpg',
+        'pexels-syed-hasan-mehdi-270838-831243.jpg'
+      ],
+      nature: [
+        'pexels-arist-creathrive-1183525-2253573.jpg',
+        'pexels-billelmoula-540518.jpg',
+        'pexels-eberhardgross-1064162.jpg',
+        'pexels-eberhardgross-1428277.jpg',
+        'pexels-jplenio-1642770.jpg',
+        'pexels-pixabay-268533.jpg',
+        'pexels-pixabay-416920.jpg',
+        'pexels-pok-rie-33563-2049422.jpg',
+        'pexels-quang-nguyen-vinh-222549-2131614.jpg',
+        'pexels-quang-nguyen-vinh-222549-2563129.jpg',
+        'pexels-sergei-a-1322276-2589456.jpg',
+        'pexels-simon73-1323550.jpg',
+        'pexels-souvenirpixels-417074.jpg',
+        'pexels-stywo-1261728.jpg',
+        'pexels-therato-1933239.jpg'
+      ]
+    };
+    
+    const folderKey = 'newtab.wallpaper.folder';
+    const indexKey = 'newtab.wallpaper.index';
+    
+    function getSelectedFolder(){
+      return localStorage.getItem(folderKey) || 'dark';
+    }
+    
+    function setBackground(folder, forceNew=false){
+      const images = wallpapers[folder] || wallpapers.dark;
+      let index = parseInt(localStorage.getItem(indexKey) || '0', 10);
+      
+      if(forceNew){
+        // Get next image in rotation
+        index = (index + 1) % images.length;
+        localStorage.setItem(indexKey, index.toString());
+      }
+      
+      const imagePath = `wallpapers/${folder}/${images[index]}`;
+      $('#bg').style.backgroundImage = `url('${imagePath}')`;
+    }
+    
+    function initBackground(forceNew=false){
+      const folder = getSelectedFolder();
+      setBackground(folder, forceNew);
+      $('#folderSelect').value = folder;
+    }
+
+    // ---------- Clock ----------
+    function tickClock(){
+      const d = new Date();
+      const timeOpts = { hour: '2-digit', minute: '2-digit' };
+      $('#clock').textContent = d.toLocaleTimeString([], timeOpts);
+      
+      const dateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
+      $('#date').textContent = d.toLocaleDateString([], dateOpts);
+    }
+
+    // ---------- Grid Rendering ----------
+    function createTile(item, index){
+      const a = document.createElement('a');
+      a.className = 'tile';
+      a.href = item.url; a.target = '_self'; a.draggable = true; a.dataset.index = index;
+
+      const icon = document.createElement('div');
+      icon.className = 'favicon';
+      const img = document.createElement('img');
+      img.alt = '';
+      const origin = originOf(item.url);
+      img.src = `${origin}/favicon.ico`;
+      img.onerror = () => { img.replaceWith(Object.assign(document.createElement('div'), {className:'initials', textContent: initialsFromTitle(item.title)})); };
+      icon.appendChild(img);
+
+      const label = document.createElement('div');
+      label.className = 'label';
+      label.title = item.title || domainOf(item.url);
+      label.textContent = item.title || domainOf(item.url);
+
+      const handle = document.createElement('div');
+      handle.className = 'handle';
+      handle.textContent = '⋮⋮';
+
+      a.append(icon, label, handle);
+
+      // context menu
+      a.addEventListener('contextmenu', (e)=>{
+        e.preventDefault();
+        showMenu(e.pageX, e.pageY, index);
+      });
+
+      // Drag + drop
+      a.addEventListener('dragstart', e=>{
+        a.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', index.toString());
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      a.addEventListener('dragend', ()=> a.classList.remove('dragging'));
+
+      a.addEventListener('dragover', e=>{
+        e.preventDefault();
+        const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
+        if(draggedIndex === index) return;
+        const list = getShortcuts();
+        const item = list.splice(draggedIndex, 1)[0];
+        list.splice(index, 0, item);
+        setShortcuts(list);
+      });
+
+      return a;
+    }
+
+    function render(){
+      const list = getShortcuts();
+      const grid = $('#grid');
+      grid.innerHTML = '';
+      if(list.length === 0){ $('#empty').hidden = false; return; }
+      $('#empty').hidden = true;
+      list.forEach((item, i)=> grid.appendChild(createTile(item, i)));
+    }
+
+    // ---------- Context menu actions ----------
+    let currentIndex = null;
+    function showMenu(x,y, index){
+      currentIndex = index;
+      const m = $('#menu');
+      m.style.display='flex';
+      m.style.left = x + 'px';
+      m.style.top = y + 'px';
+      m.setAttribute('aria-hidden','false');
+    }
+    function hideMenu(){ const m=$('#menu'); m.style.display='none'; m.setAttribute('aria-hidden','true'); }
+    document.addEventListener('click', (e)=>{
+      const m=$('#menu'); if(m.style.display==='flex' && !m.contains(e.target)) hideMenu();
+    });
+
+    $('#menu').addEventListener('click', (e)=>{
+      if(!(e.target instanceof HTMLElement)) return;
+      const action = e.target.dataset.action;
+      const list = getShortcuts();
+      const item = list[currentIndex];
+      if(!item) return hideMenu();
+
+      if(action === 'open'){
+        location.href = item.url;
+      }
+      if(action === 'edit'){
+        const title = prompt('Title', item.title || '');
+        if(title === null) return; // canceled
+        const url = prompt('URL', item.url);
+        if(url === null) return;
+        try{
+          item.url = normalizeURL(url);
+          item.title = (title || '').trim();
+          list[currentIndex] = item;
+          setShortcuts(list);
+          toast('Shortcut updated');
+        }catch(err){ toast('Invalid URL'); }
+      }
+      if(action === 'delete'){
+        if(confirm('Delete this shortcut?')){
+          list.splice(currentIndex,1);
+          setShortcuts(list);
+          toast('Deleted');
+        }
+      }
+      hideMenu();
+    });
+
+    // ---------- Add form ----------
+    $('#addForm').addEventListener('submit', (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const rawUrl = fd.get('url');
+      const rawTitle = (fd.get('title') || '').toString().trim();
+      try{
+        const url = normalizeURL(String(rawUrl));
+        const title = rawTitle || domainOf(url);
+        const list = getShortcuts();
+        // dedupe by URL
+        if(list.some(x => x.url === url)){
+          toast('Already added');
+        }else{
+          list.push({ title, url });
+          setShortcuts(list);
+          toast('Added');
+        }
+        e.target.reset();
+      }catch(err){ toast('Enter a valid URL'); }
+    });
+
+    // ---------- Export / Import ----------
+    $('#exportBtn').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify(getShortcuts(), null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'shortcuts.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+    $('#importBtn').addEventListener('click', ()=> $('#importFile').click());
+    $('#importFile').addEventListener('change', async (e)=>{
+      const file = e.target.files[0]; if(!file) return;
+      try{
+        const text = await file.text();
+        const data = JSON.parse(text);
+        if(!Array.isArray(data)) throw new Error('Invalid');
+        const cleaned = data.map(x=> ({ title: String(x.title||''), url: normalizeURL(String(x.url)) }));
+        setShortcuts(cleaned);
+        toast('Imported');
+      }catch(err){ toast('Import failed'); }
+      e.target.value = '';
+    });
+
+    // ---------- Buttons ----------
+    $('#shuffleBg').addEventListener('click', ()=>{ initBackground(true); toast('Wallpaper changed'); });
+    
+    $('#folderSelect').addEventListener('change', (e)=>{
+      const folder = e.target.value;
+      localStorage.setItem(folderKey, folder);
+      localStorage.setItem(indexKey, '0'); // Reset to first image
+      setBackground(folder, false);
+      toast(`Switched to ${folder}`);
+    });
+    
+    // ---------- Gear button toggle ----------
+    $('#gearBtn').addEventListener('click', ()=>{
+      const controls = $('.controls');
+      const footer = $('footer');
+      controls.classList.toggle('visible');
+      footer.classList.toggle('visible');
+    });
+
+    // ---------- Init ----------
+    initBackground(true); // Rotate wallpaper on each page load
+    tickClock(); setInterval(tickClock, 1000);
+    render();
+
+    // Accessibility: close menu with escape
+    document.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hideMenu(); });
+  </script>
+</body>
+</html>

@@ -33,4 +33,4 @@ yarn-debug.log*
 yarn-error.log*
 
 # Public directory (generated)
-public/
+# public/
