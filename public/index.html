@@ -387,6 +387,9 @@
     }
 
     // ---------- Grid Rendering ----------
+    let draggedElement = null;
+    let draggedIndex = null;
+    
     function createTile(item, index){
       const settings = getSettings();
       const a = document.createElement('a');
@@ -435,22 +438,69 @@
         showMenu(e.pageX, e.pageY, index);
       });
 
-      // Drag + drop
+      // Drag + drop - improved implementation
       a.addEventListener('dragstart', e=>{
+        draggedElement = a;
+        draggedIndex = index;
         a.classList.add('dragging');
-        e.dataTransfer.setData('text/plain', index.toString());
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', a.innerHTML);
       });
-      a.addEventListener('dragend', ()=> a.classList.remove('dragging'));
+      
+      a.addEventListener('dragend', ()=> {
+        a.classList.remove('dragging');
+        draggedElement = null;
+        draggedIndex = null;
+      });
 
       a.addEventListener('dragover', e=>{
         e.preventDefault();
-        const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'), 10);
-        if(draggedIndex === index) return;
-        const list = getShortcuts();
-        const item = list.splice(draggedIndex, 1)[0];
-        list.splice(index, 0, item);
-        setShortcuts(list);
+        if (draggedIndex === null || draggedIndex === index) return;
+        
+        e.dataTransfer.dropEffect = 'move';
+        
+        // Get all tiles
+        const tiles = Array.from($('#grid').children);
+        const draggedTile = tiles[draggedIndex];
+        const currentTile = tiles[index];
+        
+        if (!draggedTile || !currentTile) return;
+        
+        // Determine if we should insert before or after
+        const rect = currentTile.getBoundingClientRect();
+        const midpoint = rect.left + rect.width / 2;
+        const insertBefore = e.clientX < midpoint;
+        
+        if (insertBefore) {
+          currentTile.parentNode.insertBefore(draggedTile, currentTile);
+        } else {
+          currentTile.parentNode.insertBefore(draggedTile, currentTile.nextSibling);
+        }
+        
+        // Update indices
+        tiles.forEach((tile, idx) => {
+          tile.dataset.index = idx;
+        });
+      });
+      
+      a.addEventListener('drop', e=>{
+        e.preventDefault();
+        if (draggedIndex === null) return;
+        
+        // Get final order from DOM
+        const tiles = Array.from($('#grid').children);
+        const newOrder = tiles.map(tile => {
+          const idx = parseInt(tile.dataset.index);
+          return getShortcuts()[idx];
+        });
+        
+        // Save new order without triggering render
+        localStorage.setItem(storageKey, JSON.stringify(newOrder));
+        
+        // Update all tile indices to match new order
+        tiles.forEach((tile, idx) => {
+          tile.dataset.index = idx;
+        });
       });
 
       return a;
