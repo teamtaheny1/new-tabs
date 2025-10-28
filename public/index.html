@@ -129,6 +129,25 @@
     .color-chip{ width: 32px; height: 32px; border-radius: 6px; border: 2px solid rgba(255,255,255,0.3); cursor: pointer; transition: transform 120ms; }
     .color-chip:hover{ transform: scale(1.1); }
     .color-chip.active{ border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+    
+    /* Confirmation Modal */
+    .confirm-modal .modal-content{ max-width: 400px; }
+    .confirm-modal .modal-body{ margin: 16px 0 24px; font-size: 14px; line-height: 1.6; }
+    .confirm-modal .modal-actions{ display: flex; gap: 8px; justify-content: flex-end; }
+    .confirm-modal .modal-actions button{ height: 36px; min-width: 80px; }
+    .btn-danger{ background: #ef4444; border-color: #dc2626; }
+    .btn-danger:hover{ background: #dc2626; }
+    
+    /* Edit Tile Modal */
+    .edit-tile-modal .modal-content{ max-width: 500px; }
+    .edit-tile-modal .form-group{ margin-bottom: 16px; }
+    .edit-tile-modal .form-group label{ display: block; margin-bottom: 6px; font-size: 14px; opacity: 0.9; }
+    .edit-tile-modal .form-group input{ width: 100%; }
+    .color-grid{ display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; margin-top: 8px; }
+    .color-option{ width: 100%; aspect-ratio: 1; border-radius: 8px; border: 2px solid transparent; cursor: pointer; transition: all 120ms; position: relative; }
+    .color-option:hover{ transform: scale(1.1); border-color: rgba(255,255,255,0.3); }
+    .color-option.selected{ border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,0.3); }
+    .color-option.selected::after{ content: '\u2713'; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 16px; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
     </style>
   </head>
   <body>
@@ -179,6 +198,60 @@
 
   <div id="toast" class="toast"></div>
 
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="modal confirm-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="confirmTitle">Confirm</h2>
+        <button class="close-btn" id="confirmClose">&times;</button>
+      </div>
+      <div class="modal-body" id="confirmMessage"></div>
+      <div class="modal-actions">
+        <button id="confirmCancel">Cancel</button>
+        <button id="confirmOk" class="btn-danger">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Tile Modal -->
+  <div id="editTileModal" class="modal edit-tile-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Shortcut</h2>
+        <button class="close-btn" id="editTileClose">&times;</button>
+      </div>
+      <div class="manager-section">
+        <div class="form-group">
+          <label>Title</label>
+          <input type="text" id="editTileTitle" placeholder="Title (optional)" />
+        </div>
+        <div class="form-group">
+          <label>URL</label>
+          <input type="url" id="editTileUrl" placeholder="https://example.com" required />
+        </div>
+        <div class="form-group">
+          <label>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+              <span>Use Initials</span>
+              <label class="toggle-switch">
+                <input type="checkbox" id="editTileUseInitials" />
+                <span class="toggle-slider"></span>
+              </label>
+            </div>
+          </label>
+        </div>
+        <div class="form-group">
+          <label>Icon Background Color</label>
+          <div class="color-grid" id="editTileColorGrid"></div>
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button id="editTileCancel">Cancel</button>
+        <button id="editTileSave">Save</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Wallpaper Manager Modal -->
   <div id="wallpaperModal" class="modal">
     <div class="modal-content">
@@ -211,38 +284,6 @@
         <select id="viewFolderSelect"></select>
         <div id="imageGrid" class="image-grid"></div>
       </div>
-      
-      <div class="manager-section">
-        <h3>Tile Settings</h3>
-        
-        <div class="settings-group">
-          <label>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span>Use Title Initials Instead of Favicons</span>
-              <label class="toggle-switch">
-                <input type="checkbox" id="useInitialsToggle" />
-                <span class="toggle-slider"></span>
-              </label>
-            </div>
-          </label>
-        </div>
-        
-        <div class="settings-group">
-          <label>Favicon Background Color</label>
-          <div class="color-picker-wrapper">
-            <div class="color-preview">
-              <div class="color-chip" data-color="#3b82f6" style="background: #3b82f6;"></div>
-              <div class="color-chip" data-color="#8b5cf6" style="background: #8b5cf6;"></div>
-              <div class="color-chip" data-color="#ec4899" style="background: #ec4899;"></div>
-              <div class="color-chip" data-color="#f59e0b" style="background: #f59e0b;"></div>
-              <div class="color-chip" data-color="#10b981" style="background: #10b981;"></div>
-              <div class="color-chip" data-color="#6366f1" style="background: #6366f1;"></div>
-              <div class="color-chip active" data-color="rgba(255,255,255,0.12)" style="background: rgba(255,255,255,0.12);"></div>
-            </div>
-            <input type="color" id="customColorPicker" value="#3b82f6" />
-          </div>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -258,27 +299,54 @@
     const $$ = (q, el=document) => Array.from(el.querySelectorAll(q));
     const storageKey = 'newtab.shortcuts.v1';
     const bgKey = 'newtab.bg.seed';
-    const settingsKey = 'newtab.settings.v1';
 
-    // Settings
-    function getSettings() {
-      try {
-        return JSON.parse(localStorage.getItem(settingsKey)) || {
-          useInitials: false,
-          faviconBgColor: 'rgba(255,255,255,0.12)'
-        };
-      } catch {
-        return { useInitials: false, faviconBgColor: 'rgba(255,255,255,0.12)' };
-      }
-    }
-    
-    function saveSettings(settings) {
-      localStorage.setItem(settingsKey, JSON.stringify(settings));
-      render();
-    }
+    // Color palette with darker variants
+    const colorPalette = [
+      { name: 'Glass', color: 'rgba(255,255,255,0.12)' },
+      { name: 'Glass Dark', color: 'rgba(255,255,255,0.08)' },
+      { name: 'Blue', color: '#3b82f6' },
+      { name: 'Blue Dark', color: '#1d4ed8' },
+      { name: 'Purple', color: '#8b5cf6' },
+      { name: 'Purple Dark', color: '#6d28d9' },
+      { name: 'Pink', color: '#ec4899' },
+      { name: 'Pink Dark', color: '#be185d' },
+      { name: 'Red', color: '#ef4444' },
+      { name: 'Red Dark', color: '#b91c1c' },
+      { name: 'Orange', color: '#f59e0b' },
+      { name: 'Orange Dark', color: '#d97706' },
+      { name: 'Amber', color: '#f59e0b' },
+      { name: 'Amber Dark', color: '#b45309' },
+      { name: 'Green', color: '#10b981' },
+      { name: 'Green Dark', color: '#047857' },
+      { name: 'Emerald', color: '#34d399' },
+      { name: 'Emerald Dark', color: '#059669' },
+      { name: 'Teal', color: '#14b8a6' },
+      { name: 'Teal Dark', color: '#0f766e' },
+      { name: 'Cyan', color: '#06b6d4' },
+      { name: 'Cyan Dark', color: '#0e7490' },
+      { name: 'Sky', color: '#0ea5e9' },
+      { name: 'Sky Dark', color: '#0369a1' },
+      { name: 'Indigo', color: '#6366f1' },
+      { name: 'Indigo Dark', color: '#4338ca' },
+      { name: 'Violet', color: '#a855f7' },
+      { name: 'Violet Dark', color: '#7c3aed' },
+      { name: 'Fuchsia', color: '#d946ef' },
+      { name: 'Fuchsia Dark', color: '#a21caf' },
+      { name: 'Rose', color: '#f43f5e' },
+      { name: 'Rose Dark', color: '#be123c' }
+    ];
 
     function getShortcuts(){
-      try { return JSON.parse(localStorage.getItem(storageKey)) || []; } catch { return []; }
+      try { 
+        const shortcuts = JSON.parse(localStorage.getItem(storageKey)) || [];
+        // Migrate old shortcuts to new format with per-tile settings
+        return shortcuts.map(s => ({
+          title: s.title || '',
+          url: s.url,
+          useInitials: s.useInitials !== undefined ? s.useInitials : false,
+          bgColor: s.bgColor || 'rgba(255,255,255,0.12)'
+        }));
+      } catch { return []; }
     }
     function setShortcuts(list){ localStorage.setItem(storageKey, JSON.stringify(list)); render(); }
 
@@ -391,16 +459,15 @@
     let draggedIndex = null;
     
     function createTile(item, index){
-      const settings = getSettings();
       const a = document.createElement('a');
       a.className = 'tile';
       a.href = item.url; a.target = '_self'; a.draggable = true; a.dataset.index = index;
 
       const icon = document.createElement('div');
       icon.className = 'favicon';
-      icon.style.background = settings.faviconBgColor;
+      icon.style.background = item.bgColor || 'rgba(255,255,255,0.12)';
       
-      if (settings.useInitials) {
+      if (item.useInitials) {
         // Always show initials
         const initials = document.createElement('div');
         initials.className = 'initials';
@@ -515,6 +582,100 @@
       list.forEach((item, i)=> grid.appendChild(createTile(item, i)));
     }
 
+    // ---------- Modal Utilities ----------
+    function showConfirm(title, message) {
+      return new Promise((resolve) => {
+        $('#confirmTitle').textContent = title;
+        $('#confirmMessage').textContent = message;
+        $('#confirmModal').classList.add('visible');
+        
+        const handleOk = () => {
+          cleanup();
+          resolve(true);
+        };
+        const handleCancel = () => {
+          cleanup();
+          resolve(false);
+        };
+        const cleanup = () => {
+          $('#confirmModal').classList.remove('visible');
+          $('#confirmOk').removeEventListener('click', handleOk);
+          $('#confirmCancel').removeEventListener('click', handleCancel);
+          $('#confirmClose').removeEventListener('click', handleCancel);
+        };
+        
+        $('#confirmOk').addEventListener('click', handleOk);
+        $('#confirmCancel').addEventListener('click', handleCancel);
+        $('#confirmClose').addEventListener('click', handleCancel);
+      });
+    }
+    
+    function showEditTile(item, index) {
+      $('#editTileTitle').value = item.title || '';
+      $('#editTileUrl').value = item.url;
+      $('#editTileUseInitials').checked = item.useInitials || false;
+      
+      // Populate color grid
+      const colorGrid = $('#editTileColorGrid');
+      colorGrid.innerHTML = '';
+      colorPalette.forEach(c => {
+        const colorOption = document.createElement('div');
+        colorOption.className = 'color-option';
+        colorOption.style.background = c.color;
+        colorOption.title = c.name;
+        colorOption.dataset.color = c.color;
+        if (c.color === (item.bgColor || 'rgba(255,255,255,0.12)')) {
+          colorOption.classList.add('selected');
+        }
+        colorOption.addEventListener('click', () => {
+          $$('.color-option', colorGrid).forEach(o => o.classList.remove('selected'));
+          colorOption.classList.add('selected');
+        });
+        colorGrid.appendChild(colorOption);
+      });
+      
+      $('#editTileModal').classList.add('visible');
+      
+      return new Promise((resolve) => {
+        const handleSave = () => {
+          const title = $('#editTileTitle').value.trim();
+          const url = $('#editTileUrl').value.trim();
+          const useInitials = $('#editTileUseInitials').checked;
+          const selected = $('.color-option.selected', colorGrid);
+          const bgColor = selected ? selected.dataset.color : 'rgba(255,255,255,0.12)';
+          
+          if (!url) {
+            toast('URL is required');
+            return;
+          }
+          
+          try {
+            const normalized = normalizeURL(url);
+            cleanup();
+            resolve({ title, url: normalized, useInitials, bgColor });
+          } catch {
+            toast('Invalid URL');
+          }
+        };
+        
+        const handleCancel = () => {
+          cleanup();
+          resolve(null);
+        };
+        
+        const cleanup = () => {
+          $('#editTileModal').classList.remove('visible');
+          $('#editTileSave').removeEventListener('click', handleSave);
+          $('#editTileCancel').removeEventListener('click', handleCancel);
+          $('#editTileClose').removeEventListener('click', handleCancel);
+        };
+        
+        $('#editTileSave').addEventListener('click', handleSave);
+        $('#editTileCancel').addEventListener('click', handleCancel);
+        $('#editTileClose').addEventListener('click', handleCancel);
+      });
+    }
+
     // ---------- Context menu actions ----------
     let currentIndex = null;
     function showMenu(x,y, index){
@@ -530,7 +691,7 @@
       const m=$('#menu'); if(m.style.display==='flex' && !m.contains(e.target)) hideMenu();
     });
 
-    $('#menu').addEventListener('click', (e)=>{
+    $('#menu').addEventListener('click', async (e)=>{
       if(!(e.target instanceof HTMLElement)) return;
       const action = e.target.dataset.action;
       const list = getShortcuts();
@@ -541,26 +702,24 @@
         location.href = item.url;
       }
       if(action === 'edit'){
-        const title = prompt('Title', item.title || '');
-        if(title === null) return; // canceled
-        const url = prompt('URL', item.url);
-        if(url === null) return;
-        try{
-          item.url = normalizeURL(url);
-          item.title = (title || '').trim();
-          list[currentIndex] = item;
+        hideMenu();
+        const result = await showEditTile(item, currentIndex);
+        if(result) {
+          list[currentIndex] = result;
           setShortcuts(list);
           toast('Shortcut updated');
-        }catch(err){ toast('Invalid URL'); }
+        }
       }
       if(action === 'delete'){
-        if(confirm('Delete this shortcut?')){
+        hideMenu();
+        const confirmed = await showConfirm('Delete Shortcut', `Delete "${item.title || domainOf(item.url)}"?`);
+        if(confirmed){
           list.splice(currentIndex,1);
           setShortcuts(list);
           toast('Deleted');
         }
       }
-      hideMenu();
+      if(action === 'open') hideMenu();
     });
 
     // ---------- Add form ----------
@@ -577,7 +736,12 @@
         if(list.some(x => x.url === url)){
           toast('Already added');
         }else{
-          list.push({ title, url });
+          list.push({ 
+            title, 
+            url,
+            useInitials: false,
+            bgColor: 'rgba(255,255,255,0.12)'
+          });
           setShortcuts(list);
           toast('Added');
         }
@@ -648,16 +812,6 @@
       $('#wallpaperModal').classList.add('visible');
     }
     
-    function loadSettings() {
-      const settings = getSettings();
-      $('#useInitialsToggle').checked = settings.useInitials;
-      
-      // Update color chip selection
-      $$('.color-chip').forEach(chip => {
-        chip.classList.toggle('active', chip.dataset.color === settings.faviconBgColor);
-      });
-    }
-    
     function closeWallpaperManager() {
       $('#wallpaperModal').classList.remove('visible');
     }
@@ -679,7 +833,8 @@
       $$('.delete-icon', list).forEach(icon => {
         icon.addEventListener('click', async () => {
           const folder = icon.dataset.folder;
-          if(confirm(`Delete folder "${folder}" and all its images?`)) {
+          const confirmed = await showConfirm('Delete Folder', `Delete folder "${folder}" and all its images?`);
+          if(confirmed) {
             await deleteFolder(folder);
           }
         });
@@ -729,7 +884,8 @@
         overlay.addEventListener('click', async () => {
           const folder = overlay.dataset.folder;
           const file = overlay.dataset.file;
-          if(confirm(`Delete ${file}?`)) {
+          const confirmed = await showConfirm('Delete Image', `Delete ${file}?`);
+          if(confirmed) {
             await deleteImage(folder, file);
           }
         });
@@ -875,39 +1031,6 @@
       }
     }
     
-    // ---------- Settings ----------
-    $('#useInitialsToggle').addEventListener('change', (e) => {
-      const settings = getSettings();
-      settings.useInitials = e.target.checked;
-      saveSettings(settings);
-      toast(settings.useInitials ? 'Using initials' : 'Using favicons');
-    });
-    
-    // Color chip selection
-    $$('.color-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        const color = chip.dataset.color;
-        const settings = getSettings();
-        settings.faviconBgColor = color;
-        saveSettings(settings);
-        
-        $$('.color-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        toast('Color updated');
-      });
-    });
-    
-    // Custom color picker
-    $('#customColorPicker').addEventListener('change', (e) => {
-      const color = e.target.value;
-      const settings = getSettings();
-      settings.faviconBgColor = color;
-      saveSettings(settings);
-      
-      $$('.color-chip').forEach(c => c.classList.remove('active'));
-      toast('Custom color applied');
-    });
-
     // ---------- Init ----------
     initBackground(true); // Rotate wallpaper on each page load
     tickClock(); setInterval(tickClock, 1000);
