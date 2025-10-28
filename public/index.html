@@ -166,50 +166,55 @@
 
     function toast(msg){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(toast._id); toast._id=setTimeout(()=> t.style.display='none', 1800); }
 
-    // ---------- Background (local wallpapers) ----------
-    const wallpapers = {
-      dark: [
-        'pexels-achraf210-1477156.jpg',
-        'pexels-adrien-olichon-1257089-2387793.jpg',
-        'pexels-eberhardgross-1301976.jpg',
-        'pexels-eberhardgross-1421903.jpg',
-        'pexels-eberhardgross-2098428.jpg',
-        'pexels-elijahsad-3473569.jpg',
-        'pexels-maahidphotos-12610842.jpg',
-        'pexels-markusspiske-1679719.jpg',
-        'pexels-pixabay-315938.jpg',
-        'pexels-pixabay-53153.jpg',
-        'pexels-seatizen-co-170969-557782.jpg',
-        'pexels-syed-hasan-mehdi-270838-831243.jpg'
-      ],
-      nature: [
-        'pexels-arist-creathrive-1183525-2253573.jpg',
-        'pexels-billelmoula-540518.jpg',
-        'pexels-eberhardgross-1064162.jpg',
-        'pexels-eberhardgross-1428277.jpg',
-        'pexels-jplenio-1642770.jpg',
-        'pexels-pixabay-268533.jpg',
-        'pexels-pixabay-416920.jpg',
-        'pexels-pok-rie-33563-2049422.jpg',
-        'pexels-quang-nguyen-vinh-222549-2131614.jpg',
-        'pexels-quang-nguyen-vinh-222549-2563129.jpg',
-        'pexels-sergei-a-1322276-2589456.jpg',
-        'pexels-simon73-1323550.jpg',
-        'pexels-souvenirpixels-417074.jpg',
-        'pexels-stywo-1261728.jpg',
-        'pexels-therato-1933239.jpg'
-      ]
-    };
+    // ---------- Background (dynamic wallpapers) ----------
+    let wallpapers = {};
     
     const folderKey = 'newtab.wallpaper.folder';
     const indexKey = 'newtab.wallpaper.index';
     
+    // Load wallpapers dynamically from API or JSON file
+    async function loadWallpapers() {
+      try {
+        // Try API endpoint first (for local dev server)
+        let response = await fetch('/api/wallpapers');
+        if (!response.ok) {
+          // Fallback to static JSON file (for Firebase hosting)
+          response = await fetch('/wallpapers.json');
+        }
+        wallpapers = await response.json();
+        
+        // Populate folder dropdown
+        const folderSelect = $('#folderSelect');
+        folderSelect.innerHTML = '';
+        Object.keys(wallpapers).sort().forEach(folder => {
+          const option = document.createElement('option');
+          option.value = folder;
+          option.textContent = folder.charAt(0).toUpperCase() + folder.slice(1);
+          folderSelect.appendChild(option);
+        });
+        
+        return true;
+      } catch (error) {
+        console.error('Failed to load wallpapers:', error);
+        toast('Failed to load wallpapers');
+        return false;
+      }
+    }
+    
     function getSelectedFolder(){
-      return localStorage.getItem(folderKey) || 'dark';
+      const saved = localStorage.getItem(folderKey);
+      const folders = Object.keys(wallpapers);
+      // If saved folder doesn't exist, use first available
+      return (saved && wallpapers[saved]) ? saved : folders[0] || 'dark';
     }
     
     function setBackground(folder, forceNew=false){
-      const images = wallpapers[folder] || wallpapers.dark;
+      const images = wallpapers[folder];
+      if (!images || images.length === 0) {
+        console.error('No images found for folder:', folder);
+        return;
+      }
+      
       let index = parseInt(localStorage.getItem(indexKey) || '0', 10);
       
       if(forceNew){
@@ -218,11 +223,18 @@
         localStorage.setItem(indexKey, index.toString());
       }
       
+      // Ensure index is valid
+      if (index >= images.length) {
+        index = 0;
+        localStorage.setItem(indexKey, '0');
+      }
+      
       const imagePath = `wallpapers/${folder}/${images[index]}`;
       $('#bg').style.backgroundImage = `url('${imagePath}')`;
     }
     
-    function initBackground(forceNew=false){
+    async function initBackground(forceNew=false){
+      await loadWallpapers();
       const folder = getSelectedFolder();
       setBackground(folder, forceNew);
       $('#folderSelect').value = folder;
